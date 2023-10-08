@@ -1,52 +1,54 @@
-# Prerequisites
-*.d
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+#define NUM_ITERATIONS 1000000
 
-# Linker output
-*.ilk
-*.map
-*.exp
+long long counter = 0;
+pthread_mutex_t counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-# Precompiled Headers
-*.gch
-*.pch
+void* increment_counter(void* arg) {
+    for (int i = 0; i < NUM_ITERATIONS; i++) {
+        if (pthread_mutex_lock(&counter_mutex) != 0) {
+            perror("Error al bloquear el mutex");
+            exit(EXIT_FAILURE);
+        }
+        counter++;
+        if (pthread_mutex_unlock(&counter_mutex) != 0) {
+            perror("Error al desbloquear el mutex");
+            exit(EXIT_FAILURE);
+        }
+    }
+    return NULL;
+}
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+int main() {
+    pthread_t thread1, thread2;
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+    if (pthread_create(&thread1, NULL, increment_counter, NULL) != 0) {
+        perror("Error al crear el thread1");
+        exit(EXIT_FAILURE);
+    }
+    if (pthread_create(&thread2, NULL, increment_counter, NULL) != 0) {
+        perror("Error al crear el thread2");
+        exit(EXIT_FAILURE);
+    }
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+    if (pthread_join(thread1, NULL) != 0) {
+        perror("Error al esperar por el thread1");
+        exit(EXIT_FAILURE);
+    }
+    if (pthread_join(thread2, NULL) != 0) {
+        perror("Error al esperar por el thread2");
+        exit(EXIT_FAILURE);
+    }
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+    printf("Expected counter value: %lld\n", 2LL * NUM_ITERATIONS);
+    printf("Actual counter value: %lld\n", counter);
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+    if (pthread_mutex_destroy(&counter_mutex) != 0) {
+        perror("Error al destruir el mutex");
+        exit(EXIT_FAILURE);
+    }
+    return 0;
+}
